@@ -182,11 +182,11 @@ function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 function makeItem(el){ const d=document.createElement('div'); d.className='item'; d.dataset.id=el.id;
   d.style.fontWeight=el.weight||700; d.style.letterSpacing=(el.ls||0)+'px'; d.style.color=COLORS[el.color]||'#fff'; d.style.fontSize=el.size+'px';
   if(el.type==='image'){ d.innerHTML='<img src="'+LOGO+'" style="width:'+el.size+'px;display:block;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))">'; }
-  else if(el.type==='text'){ d.style.whiteSpace='nowrap'; d.textContent=el.text; }
+  else if(el.type==='text'){ d.style.whiteSpace='nowrap'; d.style.textShadow='0 2px 14px rgba(0,0,0,.42)'; d.textContent=el.text; }
   else if(el.type==='pill'||el.type==='button'){ const sh=el.type==='button'?';box-shadow:0 8px 22px rgba(0,0,0,.35)':'';
     d.innerHTML='<span class="pill" style="background:'+COLORS[el.fill]+';color:'+COLORS[el.color]+sh+'">'+esc(el.text)+'</span>'; }
   else if(el.type==='chip'){ d.className='item chip';
-    d.innerHTML='<div class="chiplab" style="font-size:.7em">'+esc(el.text)+'</div><div class="chipval" style="color:'+COLORS[el.color]+'">'+esc(el.text2||'')+'</div>'; }
+    d.style.textShadow='0 2px 12px rgba(0,0,0,.4)'; d.innerHTML='<div class="chiplab" style="font-size:.7em">'+esc(el.text)+'</div><div class="chipval" style="color:'+COLORS[el.color]+'">'+esc(el.text2||'')+'</div>'; }
   d.addEventListener('click',ev=>{ ev.stopPropagation(); if(!d.classList.contains('editing'))select(el.id); });
   d.addEventListener('dblclick',ev=>{ ev.stopPropagation(); if(el.type!=='image')startEdit(d,el); });
   return d;
@@ -194,18 +194,29 @@ function makeItem(el){ const d=document.createElement('div'); d.className='item'
 function buildCol(){ col.innerHTML=''; const els=cur().els; let i=0;
   while(i<els.length){ const el=els[i];
     if(!el.vis&&el.vis!==undefined){ i++; continue; }
-    if(el.type==='chip'){ const row=document.createElement('div'); row.className='chiprow'; row.style.marginTop=(el.gap||0)+'px'; row.style.gap='0px';
+    if(el.type==='chip'){ const row=document.createElement('div'); row.className='chiprow'; row.dataset.gap=(el.gap||0); row.style.marginTop=(el.gap||0)+'px'; row.style.gap='0px';
       while(i<els.length&&els[i].type==='chip'){ if(els[i].vis!==false) row.appendChild(makeItem(els[i])); i++; }
       col.appendChild(row);
-    } else { const d=makeItem(el); d.style.marginTop=(el.gap||0)+'px'; col.appendChild(d); i++; }
+    } else { const d=makeItem(el); d.dataset.gap=(el.gap||0); d.style.marginTop=(el.gap||0)+'px'; col.appendChild(d); i++; }
   }
   if(sel) markSel();
 }
-function layoutFit(){ col.style.transform='translate(-50%,-50%) scale(1)';
-  const natW=col.offsetWidth, natH=col.offsetHeight; if(!natW||!natH){return;}
-  const W=CW(),H=CH(),padX=W*0.06,padY=H*0.05;
-  let s=Math.min((W-2*padX)/natW,(H-2*padY)/natH); if(!isFinite(s)||s<=0)s=1;
-  col.style.transform='translate(-50%,-50%) scale('+s+')'; }
+function layoutFit(){ const kids=[...col.children]; if(!kids.length)return;
+  kids.forEach(c=>c.style.marginTop=((parseFloat(c.dataset.gap)||0))+'px');
+  col.style.transformOrigin='top center'; col.style.left='50%'; col.style.top='0px';
+  col.style.transform='translateX(-50%) scale(1)';
+  const natW=col.offsetWidth; if(!natW){return;}
+  let itemsH=0, gaps=0; kids.forEach(c=>{ itemsH+=c.offsetHeight; gaps+=(parseFloat(c.dataset.gap)||0); });
+  const W=CW(),H=CH(),padX=W*0.05,padY=H*0.045;
+  const availW=W-2*padX, availH=H-2*padY;
+  const sW=availW/natW; const Hp=availH/sW; let scale,gapF;
+  if(Hp>=itemsH+gaps){ scale=sW; gapF=gaps>0?Math.min((Hp-itemsH)/gaps,3.6):1; }
+  else { scale=availH/(itemsH+gaps); gapF=1; }
+  if(!isFinite(scale)||scale<=0)scale=1;
+  kids.forEach(c=>c.style.marginTop=((parseFloat(c.dataset.gap)||0)*gapF)+'px');
+  const colH=itemsH+gaps*gapF, scaledH=colH*scale;
+  const top=Math.max(padY,(H-scaledH)/2);
+  col.style.top=top+'px'; col.style.transform='translateX(-50%) scale('+scale+')'; }
 function rebuild(){ buildCol(); layoutFit(); }
 
 function fitStage(){ const wrap=document.getElementById('stagewrap'),pad=24;
